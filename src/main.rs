@@ -19,6 +19,17 @@ pub extern "C" fn _start() -> ! {
     println!("HELLO. world{}", "!");
     blog_os::init();
 
+    fn stack_overflow() {
+        stack_overflow();
+    }
+
+    // 意図的にstack overflowを起こす
+    // stack_overflow();
+
+    // unsafe {
+    //     *(0xdeadbeef as *mut u8) = 42;
+    // }
+
     // invoke a breakpoint EXCEPTION
     x86_64::instructions::interrupts::int3();
 
@@ -33,7 +44,7 @@ pub extern "C" fn _start() -> ! {
 #[cfg(not(test))]
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
-    serial_println!("{}", info);
+    println!("{}", info);
     loop {}
 }
 

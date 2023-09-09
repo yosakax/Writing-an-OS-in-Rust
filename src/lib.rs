@@ -9,11 +9,15 @@
 
 use core::panic::PanicInfo;
 
+pub mod gdt;
 pub mod interrupts;
 pub mod serial;
 pub mod vga_buffer;
 
 pub fn init() {
+    // Global Descriptor Table()の読み込み
+    gdt::init();
+    // Interrupt Descriptor Table（割り込み記述子表）を読み込む
     interrupts::init_idt();
 }
 
