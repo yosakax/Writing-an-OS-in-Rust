@@ -17,15 +17,19 @@ pub extern "C" fn _start() -> ! {
     // この関数がエントリポイントとなる
 
     println!("HELLO. world{}", "!");
-    // panic!("some panic message");
+    blog_os::init();
+
+    // invoke a breakpoint EXCEPTION
+    x86_64::instructions::interrupts::int3();
 
     #[cfg(test)]
     test_main();
 
+    println!("It did not crash!");
     loop {}
 }
 
-// panic時に呼ばれる関数
+/// panic時に呼ばれる関数
 #[cfg(not(test))]
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
