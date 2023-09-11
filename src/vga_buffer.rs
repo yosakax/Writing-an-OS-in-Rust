@@ -1,5 +1,4 @@
 use core::fmt;
-use core::fmt::Write;
 use lazy_static::lazy_static;
 use spin::Mutex;
 use volatile::Volatile;
@@ -138,8 +137,12 @@ macro_rules! println {
 
 #[doc(hidden)]
 pub fn _print(args: fmt::Arguments) {
-    // use core::fmt::Write;
-    WRITER.lock().write_fmt(args).unwrap();
+    use core::fmt::Write;
+    use x86_64::instructions::interrupts;
+    // 割り込みが発生しない状態で実行する
+    interrupts::without_interrupts(|| {
+        WRITER.lock().write_fmt(args).unwrap();
+    })
 }
 
 #[test_case]
@@ -157,10 +160,16 @@ fn test_println_many() {
 /// サンプル文字列がきちんとVGAに表示されているかを一文字ずつ確認する
 #[test_case]
 fn test_println_output() {
-    let s = "Aome test string that fits on a single line";
-    println!("{}", s);
-    for (i, c) in s.chars().enumerate() {
-        let screen_char = WRITER.lock().buffer.chars[BUFFER_HEIGHT - 2][i].read();
-        assert_eq!(char::from(screen_char.ascii_character), c);
-    }
+    use core::fmt::Write;
+    use x86_64::instructions::interrupts;
+    let s = "Some test string that fits on a single line";
+
+    interrupts::without_interrupts(|| {
+        let mut writer = WRITER.lock();
+        writeln!(writer, "\n{}", s).expect("writeln failed");
+        for (i, c) in s.chars().enumerate() {
+            let screen_char = writer.buffer.chars[BUFFER_HEIGHT - 2][i].read();
+            assert_eq!(char::from(screen_char.ascii_character), c);
+        }
+    })
 }

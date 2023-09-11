@@ -15,6 +15,7 @@ pub mod vga_buffer;
 pub extern "C" fn _start() -> ! {
     // リンカはデフォルトで_startという名前の関数を探すので
     // この関数がエントリポイントとなる
+    // WRITERをロックし続ける
 
     println!("HELLO. world{}", "!");
     blog_os::init();
@@ -31,13 +32,13 @@ pub extern "C" fn _start() -> ! {
     // }
 
     // invoke a breakpoint EXCEPTION
-    x86_64::instructions::interrupts::int3();
+    // x86_64::instructions::interrupts::int3();
 
     #[cfg(test)]
     test_main();
 
     println!("It did not crash!");
-    loop {}
+    blog_os::hlt_loop();
 }
 
 /// panic時に呼ばれる関数
@@ -45,7 +46,7 @@ pub extern "C" fn _start() -> ! {
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     println!("{}", info);
-    loop {}
+    blog_os::hlt_loop();
 }
 
 #[cfg(test)]
