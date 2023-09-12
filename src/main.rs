@@ -17,8 +17,33 @@ pub extern "C" fn _start() -> ! {
     // この関数がエントリポイントとなる
     // WRITERをロックし続ける
 
+    for _ in 0..vga_buffer::BUFFER_HEIGHT {
+        for _ in 0..vga_buffer::BUFFER_WIDTH {
+            print!(" ");
+        }
+        println!();
+    }
+
     println!("HELLO. world{}", "!");
     blog_os::init();
+
+    // // 意図的にカーネル外のメモリにアクセスしてpage faultを起こす
+    // let ptr = 0x206c3b as *mut u8;
+    // // コードページから読み込む→これはできる
+    // unsafe {
+    //     let x = *ptr;
+    // }
+    // println!("read worked!");
+    // コードページへの書き込みはできないので，ここでPage Faultが起きる
+    // unsafe {
+    //     *ptr = 42;
+    // }
+    // println!("write worked!");
+
+    // Page Tableへのアクセス
+    use x86_64::registers::control::Cr3;
+    let (level_4_page_table, _) = Cr3::read();
+    println!("Level 4 page table at: {:?}", level_4_page_table);
 
     fn stack_overflow() {
         stack_overflow();
@@ -38,6 +63,7 @@ pub extern "C" fn _start() -> ! {
     test_main();
 
     println!("It did not crash!");
+    println!("Please keyboard input!");
     blog_os::hlt_loop();
 }
 
