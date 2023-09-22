@@ -4,11 +4,13 @@
 #![test_runner(blog_os::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
-use blog_os::memory::{self, translate_addr};
+extern crate alloc;
+
+use alloc::{boxed::Box, rc::Rc, vec, vec::Vec};
+use blog_os::memory::{self};
 // use blog_os::serial_println;
-use bootloader::{bootinfo, entry_point, BootInfo};
+use bootloader::{entry_point, BootInfo};
 use core::panic::PanicInfo;
-use x86_64::{structures::paging::Translate, VirtAddr};
 
 pub mod serial;
 pub mod vga_buffer;
@@ -18,8 +20,9 @@ entry_point!(kernel_main);
 // no_mangle -> 名前修飾を無効に
 #[no_mangle]
 fn kernel_main(boot_info: &'static BootInfo) -> ! {
-    use blog_os::memory::{BootInfoFrameAllocator, EmptyFrameAllocator};
-    use x86_64::{structures::paging::Page, VirtAddr};
+    use blog_os::allocator;
+    use blog_os::memory::BootInfoFrameAllocator;
+    use x86_64::VirtAddr;
 
     // リンカはデフォルトで_startという名前の関数を探すので
     // この関数がエントリポイントとなる
@@ -38,49 +41,34 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
 
     let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset);
     let mut mapper = unsafe { memory::init(phys_mem_offset) };
-    // let mut frame_allocator = memory::EmptyFrameAllocator;
     let mut frame_allocator = unsafe { BootInfoFrameAllocator::init(&boot_info.memory_map) };
 
-    // 未使用のページをマップする
-    // address 0を管轄するレベル１テーブルは必ず存在する
-    // 存在しないページをマッピングしようとすると
-    // EmptyFrameAllocatorはエラーになる(Noneしか返さないので割り当てない)
-    // BootInfoFrameAllocatorはUsableなフレームのイテレータを取得する
-    let page = Page::containing_address(VirtAddr::new(0xdeadbeef00));
-    memory::create_example_mapping(page, &mut mapper, &mut frame_allocator);
+    allocator::init_heap(&mut mapper, &mut frame_allocator).expect("heap initialization failed");
 
-    // 新しいマッピングを使って，文字列New!を画面に書き出す
-    let page_ptr: *mut u64 = page.start_address().as_mut_ptr();
-    unsafe { page_ptr.offset(400).write_volatile(0x_f021_f077_f065_f04e) };
+    // Heapに数字をAllocateする
+    let x = Box::new(41);
+    println!("heap value at {:p}", x);
 
-    // let l4_table = unsafe { active_level_4_table(phys_mem_offset) };
-
-    // for (i, entry) in l4_table.iter().enumerate() {
-    //     if !entry.is_unused() {
-    //         println!("L4 Entry: {}: {:?}", i, entry);
-    //     }
-    // }
-    let addresses = [
-        // VGAに対応するバッファのページ(恒等対応している)
-        0xb8000,
-        // コードページのどっか
-        0x201008,
-        // スタックページのどっか
-        0x0100_0020_1a10,
-        // 物理アドレス 0 にマップされている仮想アドレス
-        boot_info.physical_memory_offset,
-    ];
-
-    for &address in &addresses {
-        let virt = VirtAddr::new(address);
-        let phys = mapper.translate_addr(virt);
-        println!("{:?} -> {:?}", virt, phys);
+    // dynamic vectorをつくる
+    let mut vec = Vec::new();
+    for i in 0..500 {
+        vec.push(i);
     }
 
-    // Page Tableへのアクセス
-    use x86_64::registers::control::Cr3;
-    let (level_4_page_table, _) = Cr3::read();
-    println!("Level 4 page table at: {:?}", level_4_page_table);
+    println!("vec at {:p}", vec.as_slice());
+
+    // 参照カウントされたVectorを作成する→カウントが0になるとメモリが開放される
+    let reference_counted = Rc::new(vec![1, 2, 3]);
+    let cloned_reference = reference_counted.clone();
+    println!(
+        "current reference coount is {}",
+        Rc::strong_count(&cloned_reference)
+    );
+    core::mem::drop(reference_counted);
+    println!(
+        "reference count is {} now.",
+        Rc::strong_count(&cloned_reference)
+    );
 
     #[cfg(test)]
     test_main();

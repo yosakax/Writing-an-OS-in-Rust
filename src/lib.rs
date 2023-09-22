@@ -4,16 +4,25 @@
 #![test_runner(crate::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 #![feature(abi_x86_interrupt)]
+#![feature(alloc_error_handler)]
 
 // extern crate rlibc;
+extern crate alloc; // heap allocation/deallocation crate
 
 use core::panic::PanicInfo;
 
+pub mod allocator;
 pub mod gdt;
 pub mod interrupts;
 pub mod memory;
 pub mod serial;
 pub mod vga_buffer;
+
+/// allocation失敗時に呼び出されるハンドラ
+#[alloc_error_handler]
+fn alloc_error_handler(layout: alloc::alloc::Layout) -> ! {
+    panic!("allocation error: {:?}", layout)
+}
 
 pub fn init() {
     // Global Descriptor Table()の読み込み
@@ -82,11 +91,14 @@ pub fn exit_qemu(exit_code: QemuExitCode) {
     }
 }
 
+#[cfg(test)]
+use bootloader::BootInfo;
+
 /// Entry point for `cargo xtest`
 #[cfg(test)]
 #[no_mangle]
 fn test_kernel_main(boot_info: &'static BootInfo) -> ! {
-    use bootloader::BootInfo;
+    // use bootloader::BootInfo;
 
     init();
     test_main();
