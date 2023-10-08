@@ -97,15 +97,16 @@ extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: InterruptStac
     let mut keyboard = KEYBOARD.lock();
     let mut port = Port::new(0x60);
     let scancode: u8 = unsafe { port.read() };
-    if let Ok(Some(key_event)) = keyboard.add_byte(scancode) {
-        if let Some(key) = keyboard.process_keyevent(key_event) {
-            println!("{:?}", key);
-            match key {
-                DecodedKey::Unicode(character) => print!("{}", character),
-                DecodedKey::RawKey(key) => print!("{:?}", key),
-            }
-        }
-    }
+    crate::task::keyboard::add_scancode(scancode);
+    // if let Ok(Some(key_event)) = keyboard.add_byte(scancode) {
+    //     if let Some(key) = keyboard.process_keyevent(key_event) {
+    //         println!("{:?}", key);
+    //         match key {
+    //             DecodedKey::Unicode(character) => print!("{}", character),
+    //             DecodedKey::RawKey(key) => print!("{:?}", key),
+    //         }
+    //     }
+    // }
 
     unsafe {
         PICS.lock()
